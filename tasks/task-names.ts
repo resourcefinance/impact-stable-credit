@@ -1,0 +1,6 @@
+export const TASK_ACCOUNT: string = "account"
+export const TASK_ACCOUNTS: string = "accounts"
+export const DEMO_SETUP: string = "demoSetup"
+export const TASK_FUNDEDWALLET: string = "fundedwallet"
+export const SYNC_CREDIT_PERIOD: string = "syncCreditPeriod"
+export const TASK_GENERATE: string = "generate"

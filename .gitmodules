@@ -1,0 +1,3 @@
+[submodule "lib/stable-credit"]
+	path = lib/stable-credit
+	url = https://github.com/resourcefinance/stable-credit
