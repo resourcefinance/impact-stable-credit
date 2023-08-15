@@ -37,7 +37,6 @@ export const deployProxyAndSaveAs = async (
   let tx = await receipt?.getTransaction()
   let proxyAddress = await contract.getAddress()
   const implAddress = await hardhat.upgrades.erc1967.getImplementationAddress(proxyAddress)
-  console.log(implAddress)
   if (!receipt || !tx || !proxyAddress) return ""
 
   const contractDeployment = {
@@ -73,5 +72,7 @@ export const getConfig = () => {
   let adminOwner = process.env.ADMIN_OWNER_ADDRESS
   let reserveTokenAddress = process.env.RESERVE_TOKEN_ADDRESS
   let swapRouterAddress = process.env.SWAP_ROUTER_ADDRESS
-  return { adminOwner, reserveTokenAddress, swapRouterAddress }
+  let symbol = process.env.NETWORK_SYMBOL
+  let name = process.env.NETWORK_NAME
+  return { adminOwner, reserveTokenAddress, swapRouterAddress, symbol, name }
 }

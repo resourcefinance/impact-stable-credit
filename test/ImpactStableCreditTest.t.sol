@@ -2,28 +2,31 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "@uniswap/v3-periphery/contracts/lens/Quoter.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@stable-credit/contracts/AccessManager.sol";
-import "@stable-credit/contracts/Assurance/AssuranceOracle.sol";
-import "@stable-credit/contracts/Assurance/AssurancePool.sol";
-import "../contracts/FeeManagerMock.sol";
-import "../contracts/StableCreditMock.sol";
-import "../contracts/CreditIssuerMock.sol";
 
-contract StableCreditBaseTest is Test {
+import "@stable-credit/contracts/AccessManager.sol";
+import "@stable-credit/contracts/Assurance/AssurancePool.sol";
+import "@stable-credit/contracts/Assurance/AssuranceOracle.sol";
+import "@uniswap/v3-periphery/contracts/lens/Quoter.sol";
+import "../contracts/ImpactCreditIssuer.sol";
+import "../contracts/ImpactFeeManager.sol";
+import "../contracts/ImpactStableCredit.sol";
+import "../contracts/Pools/CreditPool.sol";
+import "./MockERC20.sol";
+
+contract ImpactStableCreditTest is Test {
     address alice;
     address bob;
     address carol;
     address deployer;
 
+    MockERC20 public reserveToken;
     AssurancePool public assurancePool;
     AssuranceOracle public assuranceOracle;
-    StableCreditMock public stableCredit;
-    IERC20 public reserveToken;
+    ImpactStableCredit public stableCredit;
     AccessManager public accessManager;
-    FeeManagerMock public feeManager;
-    CreditIssuerMock public creditIssuer;
+    ImpactFeeManager public feeManager;
+    ImpactCreditIssuer public creditIssuer;
+    CreditPool public creditPool;
 
     // STATIC VARIABLES
     address uSDCAddress = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
@@ -32,23 +35,25 @@ contract StableCreditBaseTest is Test {
     address uniSwapRouterAddress = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
     Quoter quoter = Quoter(0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6);
 
-    function setUpStableCreditTest() public {
-        alice = makeAddr("alice");
-        bob = makeAddr("bob");
-        carol = makeAddr("carol");
+    function setUpReSourceTest() public {
+        alice = address(2);
+        bob = address(3);
+        carol = address(4);
         vm.deal(alice, 100 ether);
         vm.deal(bob, 100 ether);
         deployer = address(1);
         vm.startPrank(deployer);
-        reserveToken = IERC20(uSDCAddress);
+
+        // deploy reserve token
+        reserveToken = new MockERC20(1000000e18, "Reserve Token", "REZ");
+        // deploy AssuranceOracle
+        assuranceOracle = new AssuranceOracle();
         // deploy accessManager
         accessManager = new AccessManager();
         accessManager.initialize(deployer);
         // deploy mock StableCredit network
-        stableCredit = new StableCreditMock();
+        stableCredit = new ImpactStableCredit();
         stableCredit.initialize("mock", "MOCK", address(accessManager));
-        // deploy assuranceOracle
-        assuranceOracle = new AssuranceOracle();
         // deploy assurancePool
         assurancePool = new AssurancePool();
         assurancePool.initialize(
@@ -60,10 +65,10 @@ contract StableCreditBaseTest is Test {
             deployer
         );
         //deploy feeManager
-        feeManager = new FeeManagerMock();
+        feeManager = new ImpactFeeManager();
         feeManager.initialize(address(stableCredit));
         // deploy creditIssuer
-        creditIssuer = new CreditIssuerMock();
+        creditIssuer = new ImpactCreditIssuer();
         creditIssuer.initialize(address(stableCredit));
         // initialize contract variables
         accessManager.grantOperator(address(stableCredit)); // grant stableCredit operator access
@@ -75,15 +80,19 @@ contract StableCreditBaseTest is Test {
         stableCredit.setAssurancePool(address(assurancePool)); // set assurancePool
         assurancePool.setTargetRTD(20e16); // set targetRTD to 20%
         feeManager.setBaseFeeRate(5e16); // set base fee rate to 5%
-        // send members reserve tokens
-        reserveToken.transfer(alice, 1000e6);
-        reserveToken.transfer(bob, 100e6);
-        reserveToken.transfer(carol, 100e6);
+        // send alice 1000 reserve tokens
+        assurancePool.reserveToken().transfer(alice, 1000 ether);
+        reserveToken.transfer(bob, 100 ether);
+        reserveToken.transfer(carol, 100 ether);
         accessManager.grantMember(bob);
-        // set credit limit
-        stableCredit.createCreditLine(alice, 1000e6, 0);
-        // initailze credit period
-        creditIssuer.initializeCreditPeriod(alice, block.timestamp + 90 days, 30 days);
+        // initialize alice credit line
+        creditIssuer.initializeCreditLine(alice, 90 days, 30 days, 1000e6, 5e16, 10e16, 0);
+        // deploy credit pool
+        creditPool = new CreditPool();
+        creditPool.initialize(address(stableCredit));
+        // set credit pool limit to max
+        stableCredit.createCreditLine(address(creditPool), type(uint128).max - 1, 0);
+        accessManager.grantOperator(address(creditPool)); // grant creditPool operator access
     }
 
     function test() public {}
